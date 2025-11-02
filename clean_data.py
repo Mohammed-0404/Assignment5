@@ -38,5 +38,5 @@ def clean_data(input_file, output_file):
     except Exception:
         return
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     clean_data("ebay_tech_deals.csv", "cleaned_ebay_deals.csv")
