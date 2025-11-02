@@ -1,22 +1,42 @@
 import pandas as pd
+import numpy as np
 
+def clean_price_column(series):
 
-df = pd.read_csv("ebay_tech_deals.csv", dtype=str)
+    cleaned_series = series.astype(str).copy()
+    cleaned_series = cleaned_series.str.replace('US $', '', regex=False).str.replace('$', '', regex=False).str.replace(',', '', regex=False).str.strip()
+    cleaned_series.replace(['', 'nan', 'N/A'], np.nan, inplace=True)
+    return cleaned_series
 
-df["price"] = df["price"].astype(str).str.replace("US $", "").str.replace(",", "").str.strip()
-df["original_price"] = df["original_price"].astype(str).str.replace("US $", "").str.replace(",", "").str.strip()
+def clean_data(input_file, output_file):
 
-df["price"] = pd.to_numeric(df["price"], errors='coerce')
-df["original_price"] = pd.to_numeric(df["original_price"], errors='coerce')
+    try:
+        df = pd.read_csv(input_file, dtype=str)
+    except Exception:
+        return
 
-df["original_price"].fillna(df["price"], inplace=True)
+    df['price'] = clean_price_column(df['price'])
+    df['original_price'] = clean_price_column(df['original_price'])
+    
+    df['price'] = pd.to_numeric(df['price'], errors='coerce')
+    df.dropna(subset=['price'], inplace=True)
 
-df.loc[df["shipping"].isna() | df["shipping"].str.strip().isin(["", "N/A"]), "shipping"] = "Shipping info unavailable"
-df["shipping"] = df["shipping"].str.strip()
+    df['original_price'] = pd.to_numeric(df['original_price'], errors='coerce')
+    df['original_price'] = df['original_price'].fillna(df['price'])
 
-df["discount_percentage"] = ((df["original_price"] - df["price"]) / df["original_price"]) * 100
-df["discount_percentage"] = df["discount_percentage"].round(2).fillna(0.0)
+    df['shipping'] = df['shipping'].fillna("Shipping info unavailable")
 
-df.to_csv("cleaned_ebay_deals.csv", index=False)
+    discount = df['original_price'] - df['price']
+    df['discount_percentage'] = np.where(
+        (df['original_price'] > 0) & (discount > 0),
+        (discount / df['original_price']) * 100,
+        0.0
+    ).round(2)
 
-print("Data cleaning complete. Saved as cleaned_ebay_deals.csv.")
+    try:
+        df.to_csv(output_file, index=False)
+    except Exception:
+        return
+
+if __name__ == "_main_":
+    clean_data("ebay_tech_deals.csv", "cleaned_ebay_deals.csv")
